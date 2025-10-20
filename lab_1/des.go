@@ -1,8 +1,12 @@
 package main
 
-import "fmt"
+import (
+	"crypto/rand"
+	"fmt"
+)
 
 // Начальная перестановка (IP)
+
 var initialPermutation = []int{
 	58, 50, 42, 34, 26, 18, 10, 2,
 	60, 52, 44, 36, 28, 20, 12, 4,
@@ -125,6 +129,33 @@ var pc2 = []int{
 // Количество левых сдвигов для каждого раунда
 var shiftTable = []int{1, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1}
 
+// rotateLeft28 выполняет циклический левый сдвиг 28-битного числа на shifts позиций
+func rotateLeft28(n uint32, shifts uint) uint32 {
+	shifts = shifts % 28
+	mask := uint32((1 << 28) - 1) // 0x0FFFFFFF
+	return ((n << shifts) | (n >> (28 - shifts))) & mask
+}
+
+// bitsToUint32 преобразует массив битов в uint32
+func bitsToUint32(bits []int) uint32 {
+	var result uint32
+	for i := 0; i < len(bits) && i < 32; i++ {
+		if bits[i] != 0 {
+			result |= 1 << uint(len(bits)-1-i)
+		}
+	}
+	return result
+}
+
+// uint32ToBits преобразует uint32 в массив битов указанной длины
+func uint32ToBits(n uint32, bitCount int) []int {
+	bits := make([]int, bitCount)
+	for i := 0; i < bitCount; i++ {
+		bits[bitCount-1-i] = int((n >> uint(i)) & 1)
+	}
+	return bits
+}
+
 // DESKeyExpansion реализация расширения ключа для DES
 type DESKeyExpansion struct{}
 
@@ -134,8 +165,8 @@ func (ke *DESKeyExpansion) ExpandKey(key []byte) [][]byte {
 		panic(fmt.Sprintf("ключ DES должен быть 64 бита (8 байт), получено %d", len(key)))
 	}
 
+	// Применяем PC-1 к ключу
 	pc1Key := BitPermutation(key, pc1, false, 1)
-
 	var pc1Bits []int
 	for _, b := range pc1Key {
 		for i := 7; i >= 0; i-- {
@@ -146,18 +177,24 @@ func (ke *DESKeyExpansion) ExpandKey(key []byte) [][]byte {
 		pc1Bits = pc1Bits[:56]
 	}
 
-	leftHalf := make([]int, 28)
-	rightHalf := make([]int, 28)
-	copy(leftHalf, pc1Bits[:28])
-	copy(rightHalf, pc1Bits[28:56])
+	// Преобразуем левую и правую половины в uint32 для битовых операций
+	leftBits := pc1Bits[:28]
+	rightBits := pc1Bits[28:56]
+
+	leftHalf := bitsToUint32(leftBits)
+	rightHalf := bitsToUint32(rightBits)
 
 	var roundKeys [][]byte
 	for roundNum := 0; roundNum < 16; roundNum++ {
-		shiftCount := shiftTable[roundNum]
-		leftHalf = append(leftHalf[shiftCount:], leftHalf[:shiftCount]...)
-		rightHalf = append(rightHalf[shiftCount:], rightHalf[:shiftCount]...)
+		// Циклические сдвиги через битовые операции
+		shiftCount := uint(shiftTable[roundNum])
+		leftHalf = rotateLeft28(leftHalf, shiftCount)
+		rightHalf = rotateLeft28(rightHalf, shiftCount)
 
-		combined := append(leftHalf, rightHalf...)
+		// Преобразуем обратно в биты и объединяем
+		leftBitsRotated := uint32ToBits(leftHalf, 28)
+		rightBitsRotated := uint32ToBits(rightHalf, 28)
+		combined := append(leftBitsRotated, rightBitsRotated...)
 
 		var combinedBytes []byte
 		for i := 0; i < len(combined); i += 8 {
@@ -168,12 +205,14 @@ func (ke *DESKeyExpansion) ExpandKey(key []byte) [][]byte {
 			combinedBytes = append(combinedBytes, byteValue)
 		}
 
+		// Применяем PC-2 для получения раундового ключа
 		rk := BitPermutation(combinedBytes, pc2, false, 1)
 		if len(rk) > 6 {
 			rk = rk[:6]
 		}
 		roundKeys = append(roundKeys, rk)
 	}
+
 	return roundKeys
 }
 
@@ -185,20 +224,24 @@ func (rf *DESRoundFunction) Apply(block []byte, roundKey []byte) []byte {
 	if len(block) != 4 {
 		panic(fmt.Sprintf("блок должен быть 32 бита (4 байта), получено %d", len(block)))
 	}
+
 	if len(roundKey) != 6 {
 		panic(fmt.Sprintf("раундовый ключ должен быть 48 бит (6 байт), получено %d", len(roundKey)))
 	}
 
+	// Расширение E
 	expanded := BitPermutation(block, expansionTable, false, 1)
 	if len(expanded) > 6 {
 		expanded = expanded[:6]
 	}
 
+	// XOR с раундовым ключом
 	xored := make([]byte, len(expanded))
 	for i := 0; i < len(expanded) && i < len(roundKey); i++ {
 		xored[i] = expanded[i] ^ roundKey[i]
 	}
 
+	// Преобразование в биты
 	var xoredBits []int
 	for _, b := range xored {
 		for i := 7; i >= 0; i-- {
@@ -209,6 +252,7 @@ func (rf *DESRoundFunction) Apply(block []byte, roundKey []byte) []byte {
 		xoredBits = xoredBits[:48]
 	}
 
+	// S-блоки
 	var sboxOutput []int
 	for i := 0; i < 8; i++ {
 		start := i * 6
@@ -216,19 +260,23 @@ func (rf *DESRoundFunction) Apply(block []byte, roundKey []byte) []byte {
 		if end > len(xoredBits) {
 			end = len(xoredBits)
 		}
+
 		block6bit := make([]int, 6)
 		copy(block6bit, xoredBits[start:end])
 		for len(block6bit) < 6 {
 			block6bit = append(block6bit, 0)
 		}
+
 		row := (block6bit[0] << 1) | block6bit[5]
 		col := (block6bit[1] << 3) | (block6bit[2] << 2) | (block6bit[3] << 1) | block6bit[4]
 		val := sBoxes[i][row][col]
+
 		for j := 3; j >= 0; j-- {
 			sboxOutput = append(sboxOutput, (val>>j)&1)
 		}
 	}
 
+	// Преобразование обратно в байты
 	var sboxBytes []byte
 	for i := 0; i < 32; i += 8 {
 		var byteValue byte
@@ -238,10 +286,12 @@ func (rf *DESRoundFunction) Apply(block []byte, roundKey []byte) []byte {
 		sboxBytes = append(sboxBytes, byteValue)
 	}
 
+	// P-блок
 	finalResult := BitPermutation(sboxBytes, pBox, false, 1)
 	if len(finalResult) > 4 {
 		finalResult = finalResult[:4]
 	}
+
 	return finalResult
 }
 
@@ -274,4 +324,14 @@ func (des *DESCipher) DecryptBlock(block []byte) []byte {
 	afterFeistel := des.feistelNetwork.DecryptBlock(afterIP)
 	finalResult := BitPermutation(afterFeistel, finalPermutation, false, 1)
 	return finalResult
+}
+
+// GenerateDESKey генерирует случайный 64-битный ключ для DES
+func GenerateDESKey() ([]byte, error) {
+	key := make([]byte, 8)
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка генерации случайного ключа DES: %w", err)
+	}
+	return key, nil
 }

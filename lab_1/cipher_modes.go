@@ -41,7 +41,6 @@ func (cm *CipherModes) incrementCounter(counter []byte) []byte {
 
 // ECB
 
-// EncryptECB - ИСПРАВЛЕНО: гарантия порядка блоков
 func (cm *CipherModes) EncryptECB(blocks [][]byte) []byte {
 	results := make([][]byte, len(blocks))
 	var wg sync.WaitGroup
