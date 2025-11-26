@@ -8,7 +8,7 @@ import (
 func main() {
 
 	// 1: Демонстрация MathService
-	fmt.Println("--- Задание 1: MathService ---")
+	fmt.Println("MathService")
 	ms := NewMathService()
 
 	a := big.NewInt(3)
@@ -32,7 +32,7 @@ func main() {
 	fmt.Printf("ModPow: 3^5 mod 13 = %s\n\n", ms.ModPow(base, exp, mod))
 
 	// 2: Демонстрация тестов простоты
-	fmt.Println("--- Задание 2: Тесты простоты ---")
+	fmt.Println("Тесты простоты")
 	testNum := big.NewInt(97)
 
 	fermat := NewFermatTest(ms)
@@ -45,7 +45,7 @@ func main() {
 	fmt.Printf("Тест Миллера-Рабина для %s: %v\n\n", testNum, miller.IsProbablyPrime(testNum, 0.999))
 
 	// 3: Демонстрация RSA
-	fmt.Println("--- Задание 3: RSA шифрование ---")
+	fmt.Println("RSA шифрование")
 	rsaService := NewRSAService(TestMillerRabin, 0.9999, 512)
 
 	fmt.Println("Генерация ключей...")
@@ -76,7 +76,7 @@ func main() {
 	fmt.Printf("Расшифрованное: %s\n\n", decrypted)
 
 	/// 4: Демонстрация атаки Винера
-	fmt.Println("--- Задание 4: Атака Винера ---")
+	fmt.Println("Атака Винера")
 	fmt.Println("Создание уязвимого ключа для демонстрации атаки...")
 
 	// Используем малые простые числа для демонстрации
@@ -121,9 +121,9 @@ func main() {
 	fmt.Printf("  N^(1/4) / 3 ≈ %.2f\n", limit)
 
 	if dFloat.Cmp(limit) < 0 {
-		fmt.Println("  ✓ Условие выполнено — ключ УЯЗВИМ")
+		fmt.Println("Условие выполнено — ключ УЯЗВИМ")
 	} else {
-		fmt.Println("  ✗ Условие не выполнено")
+		fmt.Println("Условие не выполнено")
 	}
 
 	// Запускаем атаку
@@ -132,7 +132,7 @@ func main() {
 
 	fmt.Println()
 	if attackResult.Success {
-		fmt.Printf("✓ Атака успешна!\n")
+		fmt.Printf("  Атака успешна!\n")
 		fmt.Printf("  Найденная экспонента d = %s\n", attackResult.D)
 		fmt.Printf("  Правильная экспонента d = %s\n", vulnerableD)
 		fmt.Printf("  Совпадают: %v\n", attackResult.D.Cmp(vulnerableD) == 0)
@@ -140,9 +140,8 @@ func main() {
 			fmt.Printf("  Функция Эйлера φ(n) = %s\n", attackResult.Phi)
 		}
 	} else {
-		fmt.Println("✗ Атака не удалась")
+		fmt.Println("  Атака не удалась")
 		fmt.Println("  (возможно, нужно улучшить алгоритм атаки)")
 	}
 
-	fmt.Println("\n=== Работа завершена ===")
 }

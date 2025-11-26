@@ -15,14 +15,17 @@ func main() {
 	demonstrateDEAL()
 	demonstratePaddingModes()
 
+	demonstrate3DES()            
+	demonstrate3DESWithModes()  
+
 	encryptDES_ECB()
 	testStandardDES()
 	demonstrateMyFileEncryption()
 }
 
 func demonstrateKeyGeneration() {
-	fmt.Println("=== ГЕНЕРАЦИЯ КЛЮЧЕЙ ===")
-
+	fmt.Println("ГЕНЕРАЦИЯ КЛЮЧЕЙ")
+	
 	// Генерация ключа DES
 	desKey, err := GenerateDESKey()
 	if err != nil {
@@ -30,21 +33,36 @@ func demonstrateKeyGeneration() {
 	} else {
 		fmt.Printf("Сгенерирован ключ DES (64 бита): %X\n", desKey)
 	}
-
-	// Генерация ключей DEAL разных размеров
+	
+	// Генерация ключей 3DES
+	for _, opt := range []int{1, 2, 3} {
+		tdesKey, err := Generate3DESKey(opt)
+		if err != nil {
+			fmt.Printf("Ошибка генерации ключа 3DES Option %d: %v\n", opt, err)
+		} else {
+			keySize := len(tdesKey) * 8
+			fmt.Printf("Сгенерирован ключ 3DES Option %d (%d бит, %d байт): %X\n", 
+				opt, keySize, len(tdesKey), tdesKey)
+		}
+	}
+	
+	// Генерация ключей DEAL
 	for _, keySize := range []int{128, 192, 256} {
 		dealKey, err := GenerateDEALKey(keySize)
 		if err != nil {
 			fmt.Printf("Ошибка генерации ключа DEAL-%d: %v\n", keySize, err)
 		} else {
-			fmt.Printf("Сгенерирован ключ DEAL-%d бит (%d байт): %X\n", keySize, len(dealKey), dealKey)
+			fmt.Printf("Сгенерирован ключ DEAL-%d бит (%d байт): %X\n", 
+				keySize, len(dealKey), dealKey)
 		}
 	}
+	
 	fmt.Println()
 }
 
+
 func demonstrateBitPermutation() {
-	fmt.Println("=== ФУНКЦИЯ ПЕРЕСТАНОВКИ БИТ ===")
+	fmt.Println("ФУНКЦИЯ ПЕРЕСТАНОВКИ БИТ")
 	data := []byte{0xAB, 0xCD} // 10101011 11001101
 	fmt.Printf("Исходные данные: %08b %08b\n", data[0], data[1])
 
@@ -59,7 +77,7 @@ func demonstrateBitPermutation() {
 }
 
 func demonstrateDES() {
-	fmt.Println("=== ДЕМОНСТРАЦИЯ РАБОТЫ DES ===")
+	fmt.Println("ДЕМОНСТРАЦИЯ РАБОТЫ DES")
 
 	desCipher := NewDESCipher()
 	key := []byte{0x13, 0x34, 0x57, 0x79, 0x9B, 0xBC, 0xDF, 0xF1} // 64-битный ключ
@@ -73,7 +91,7 @@ func demonstrateDES() {
 		fmt.Printf("Ошибка настройки ключей: %v\n", err)
 		return
 	}
-	fmt.Println("✓ Ключи настроены")
+	fmt.Println("Ключи настроены")
 
 	ciphertext := desCipher.EncryptBlock(plaintext)
 	fmt.Printf("Зашифрованный текст (hex): %X\n", ciphertext)
@@ -83,7 +101,7 @@ func demonstrateDES() {
 	fmt.Printf("Расшифрованный текст (hex): %X\n", decrypted)
 	fmt.Printf("Корректность: %v\n\n", string(plaintext) == string(decrypted))
 
-	fmt.Println("=== ТЕСТИРОВАНИЕ РАЗЛИЧНЫХ РЕЖИМОВ ШИФРОВАНИЯ ===")
+	fmt.Println("ТЕСТИРОВАНИЕ РАЗЛИЧНЫХ РЕЖИМОВ ШИФРОВАНИЯ")
 	modes := []CipherMode{ECB, CBC, CFB, OFB, CTR}
 	testData := []byte("This is a longer test message that requires multiple blocks for encryption testing purposes!")
 
@@ -119,7 +137,7 @@ func demonstrateDES() {
 }
 
 func demonstrateDEAL() {
-	fmt.Println("=== ДЕМОНСТРАЦИЯ РАБОТЫ DEAL ===")
+	fmt.Println("ДЕМОНСТРАЦИЯ РАБОТЫ DEAL")
 
 	// Тестирование всех размеров ключей
 	keySizes := []struct {
@@ -153,7 +171,7 @@ func demonstrateDEAL() {
 			fmt.Printf("Ошибка настройки ключей DEAL: %v\n", err)
 			continue
 		}
-		fmt.Println("✓ Ключи DEAL настроены")
+		fmt.Println("Ключи DEAL настроены")
 
 		ciphertext := dealCipher.EncryptBlock(plaintext)
 		fmt.Printf("Зашифрованный текст (hex): %X\n", ciphertext)
@@ -164,7 +182,7 @@ func demonstrateDEAL() {
 		fmt.Printf("Корректность: %v\n", string(plaintext) == string(decrypted))
 	}
 
-	fmt.Println("\n=== ТЕСТИРОВАНИЕ DEAL С РАЗЛИЧНЫМИ РЕЖИМАМИ ===")
+	fmt.Println("\nТЕСТИРОВАНИЕ DEAL С РАЗЛИЧНЫМИ РЕЖИМАМИ")
 
 	// Используем 256-битный ключ для демонстрации (8 раундов)
 	key256, _ := GenerateDEALKey(256)
@@ -200,7 +218,7 @@ func demonstrateDEAL() {
 }
 
 func demonstratePaddingModes() {
-	fmt.Println("=== ДЕМОНСТРАЦИЯ РЕЖИМОВ НАБИВКИ ===")
+	fmt.Println("ДЕМОНСТРАЦИЯ РЕЖИМОВ НАБИВКИ")
 
 	testCases := [][]byte{
 		[]byte("Short"),                    // 5 байт
@@ -220,20 +238,20 @@ func demonstratePaddingModes() {
 			fmt.Printf("  Режим набивки: %s\n", padding)
 			ctx, err := NewCipherContext(desCipher, desKey, ECB, padding, nil, 8)
 			if err != nil {
-				fmt.Printf("  ✗ Ошибка создания контекста: %v\n", err)
+				fmt.Printf("Ошибка создания контекста: %v\n", err)
 				continue
 			}
 
 			enc, err := ctx.Encrypt(data)
 			if err != nil {
-				fmt.Printf("  ✗ Ошибка шифрования: %v\n", err)
+				fmt.Printf("Ошибка шифрования: %v\n", err)
 				continue
 			}
 			fmt.Printf("  Зашифровано: %d байт\n", len(enc))
 
 			dec, err := ctx.Decrypt(enc)
 			if err != nil {
-				fmt.Printf("  ✗ Ошибка дешифрования: %v\n", err)
+				fmt.Printf("Ошибка дешифрования: %v\n", err)
 				continue
 			}
 			fmt.Printf("  Дешифровано: %d байт\n", len(dec))
@@ -243,16 +261,9 @@ func demonstratePaddingModes() {
 	}
 }
 
-func boolToCheckmark(b bool) string {
-	if b {
-		return "✓"
-	}
-	return "✗"
-}
-
 // === Функция для шифрования данных в режиме ECB ===
 func encryptDES_ECB() {
-	fmt.Println("=== ШИФРОВАНИЕ DES В РЕЖИМЕ ECB ===\n")
+	fmt.Println("ШИФРОВАНИЕ DES В РЕЖИМЕ ECB")
 
 	// Ключ (64 бита = 8 байт)
 	key := []byte{
@@ -294,7 +305,7 @@ func encryptDES_ECB() {
 }
 
 func demonstrateMyFileEncryption() {
-	fmt.Println("=== ДЕМОНСТРАЦИЯ ШИФРОВАНИЯ ФАЙЛОВ ===")
+	fmt.Println("ДЕМОНСТРАЦИЯ ШИФРОВАНИЯ ФАЙЛОВ")
 
 	pdfFiles := []string{
 		"test/photo_2025-09-15_19-04-32.jpg",
@@ -365,15 +376,15 @@ func demonstrateMyFileEncryption() {
 			orig, _ := os.ReadFile(filename)
 			dec, _ := os.ReadFile(decPath)
 			if string(orig) == string(dec) {
-				fmt.Printf("✓ Идентичны\n")
+				fmt.Printf("Идентичны\n")
 				fmt.Printf("  → Сохранено: %s\n", decPath)
 			} else {
-				fmt.Printf("✗ Файлы различаются!\n")
+				fmt.Printf("Файлы различаются!\n")
 			}
 		}
 	}
 
-	fmt.Println("\n✓ Шифрование и расшифровка завершены!")
+	fmt.Println("\n Шифрование и расшифровка завершены!")
 	fmt.Println("Созданы файлы:")
 	fmt.Println("  - *.deal_*_encrypted (зашифрованные)")
 	fmt.Println("  - *_decrypted_* (расшифрованные)")
@@ -388,3 +399,154 @@ func testStandardDES() {
 	block.Encrypt(ciphertext, plaintext)
 	fmt.Printf("Стандартная Go: %X\n", ciphertext)
 }
+
+func demonstrate3DES() {
+	fmt.Println("ДЕМОНСТРАЦИЯ TRIPLE DES (3DES)")
+	
+	plaintext := []byte("DESTEST!")
+	fmt.Printf("Исходный текст: %s (%X)\n", plaintext, plaintext)
+	
+	// Тест 1: 3-ключевой 3DES (192 бита)
+	fmt.Println("\n1. 3-ключевой 3DES (192 бита, Option 1):")
+	key3, err := Generate3DESKey(1)
+	if err != nil {
+		fmt.Printf("Ошибка генерации ключа: %v\n", err)
+		return
+	}
+	fmt.Printf("Ключ (24 байта): %X\n", key3)
+	
+	tdes3 := NewTripleDESCipher()
+	if err := tdes3.SetupKeys(key3); err != nil {
+		fmt.Printf("Ошибка настройки ключей: %v\n", err)
+		return
+	}
+	
+	encrypted3 := tdes3.EncryptBlock(plaintext)
+	fmt.Printf("Зашифровано: %X\n", encrypted3)
+	
+	decrypted3 := tdes3.DecryptBlock(encrypted3)
+	fmt.Printf("Расшифровано: %s (%X)\n", decrypted3, decrypted3)
+	
+	if string(decrypted3) == string(plaintext) {
+		fmt.Println("Расшифровка успешна (3-ключевой)")
+	}
+	
+	// Тест 2: 2-ключевой 3DES (128 бит)
+	fmt.Println("\n2. 2-ключевой 3DES (128 бит, Option 2):")
+	key2, err := Generate3DESKey(2)
+	if err != nil {
+		fmt.Printf("Ошибка генерации ключа: %v\n", err)
+		return
+	}
+	fmt.Printf("Ключ (16 байт): %X\n", key2)
+	
+	tdes2 := NewTripleDESCipher()
+	if err := tdes2.SetupKeys(key2); err != nil {
+		fmt.Printf("Ошибка настройки ключей: %v\n", err)
+		return
+	}
+	
+	encrypted2 := tdes2.EncryptBlock(plaintext)
+	fmt.Printf("Зашифровано: %X\n", encrypted2)
+	
+	decrypted2 := tdes2.DecryptBlock(encrypted2)
+	fmt.Printf("Расшифровано: %s (%X)\n", decrypted2, decrypted2)
+	
+	if string(decrypted2) == string(plaintext) {
+		fmt.Println("Расшифровка успешна (2-ключевой)")
+	}
+	
+	// Тест 3: Совместимость с обычным DES
+	fmt.Println("\n3. 1-ключевой 3DES (64 бита, Option 3 - эквивалентно DES):")
+	key1, err := GenerateDESKey()
+	if err != nil {
+		fmt.Printf("Ошибка генерации ключа: %v\n", err)
+		return
+	}
+	fmt.Printf("Ключ (8 байт): %X\n", key1)
+	
+	tdes1 := NewTripleDESCipher()
+	if err := tdes1.SetupKeys(key1); err != nil {
+		fmt.Printf("Ошибка настройки ключей: %v\n", err)
+		return
+	}
+	
+	encrypted1 := tdes1.EncryptBlock(plaintext)
+	fmt.Printf("Зашифровано 3DES: %X\n", encrypted1)
+	
+	// Проверка совместимости с обычным DES
+	des := NewDESCipher()
+	if err := des.SetupKeys(key1); err != nil {
+		fmt.Printf("Ошибка настройки DES: %v\n", err)
+		return
+	}
+	
+	encryptedDES := des.EncryptBlock(plaintext)
+	fmt.Printf("Зашифровано DES:  %X\n", encryptedDES)
+	
+	if string(encrypted1) == string(encryptedDES) {
+		fmt.Println("1-ключевой 3DES эквивалентен обычному DES")
+	}
+	
+	decrypted1 := tdes1.DecryptBlock(encrypted1)
+	fmt.Printf("Расшифровано: %s (%X)\n", decrypted1, decrypted1)
+	
+	if string(decrypted1) == string(plaintext) {
+		fmt.Println("Расшифровка успешна (1-ключевой)")
+	}
+	
+	fmt.Println()
+}
+
+func demonstrate3DESWithModes() {
+	fmt.Println("TRIPLE DES С РЕЖИМАМИ ШИФРОВАНИЯ")
+	
+	plaintext := []byte("Hello Triple DES! This is a longer message for testing.")
+	fmt.Printf("Исходный текст: %s\n", plaintext)
+	fmt.Printf("Длина: %d байт\n\n", len(plaintext))
+	
+	// Генерация 3-ключевого 3DES ключа
+	key, err := Generate3DESKey(1)
+	if err != nil {
+		fmt.Printf("Ошибка генерации ключа: %v\n", err)
+		return
+	}
+	fmt.Printf("Ключ 3DES (192 бита): %X\n\n", key)
+	
+	// Создание шифра
+	tdes := NewTripleDESCipher()
+	
+	// IV для режимов
+	iv := []byte{0x12, 0x34, 0x56, 0x78, 0x90, 0xAB, 0xCD, 0xEF}
+	
+	// Тестируем режим CBC
+	fmt.Println("Режим CBC:")
+	ctx, err := NewCipherContext(tdes, key, CBC, PKCS7, iv, 8)
+	if err != nil {
+		fmt.Printf("Ошибка создания контекста: %v\n", err)
+		return
+	}
+	
+	encrypted, err := ctx.Encrypt(plaintext)
+	if err != nil {
+		fmt.Printf("Ошибка шифрования: %v\n", err)
+		return
+	}
+	fmt.Printf("Зашифровано (hex): %X\n", encrypted)
+	
+	decrypted, err := ctx.Decrypt(encrypted)
+	if err != nil {
+		fmt.Printf("Ошибка расшифровки: %v\n", err)
+		return
+	}
+	fmt.Printf("Расшифровано: %s\n", decrypted)
+	
+	if string(decrypted) == string(plaintext) {
+		fmt.Println("Расшифровка успешна")
+	} else {
+		fmt.Println("Ошибка расшифровки")
+	}
+	
+	fmt.Println()
+}
+
